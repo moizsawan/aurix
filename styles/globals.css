@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+* { box-sizing: border-box; }
+body { font-family: 'DM Sans', sans-serif; margin: 0; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes pulse-ring { 0% { transform: scale(0.8); opacity: 1; } 100% { transform: scale(1.8); opacity: 0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes score-fill { from { width: 0%; } }
+
+.anim-up { animation: fadeUp 0.4s ease-out both; }
+.s1 { animation-delay: 0.05s; } .s2 { animation-delay: 0.1s; } .s3 { animation-delay: 0.15s; }
+.s4 { animation-delay: 0.2s; } .s5 { animation-delay: 0.25s; } .s6 { animation-delay: 0.3s; }
