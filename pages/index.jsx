@@ -915,7 +915,7 @@ function ClinicianApp({ user, onLogout }) {
                 <I n="edit" c="w-3.5 h-3.5" /> Edit
               </button>
             )}
-            <button onClick={() => { setSelectedPatient(p); setShowNewRequest(true); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition hover:brightness-110" style={{ background: "linear-gradient(135deg, #C8922A 0%, #A67520 100%)" }}>
+            <button onClick={() => { setSelectedPatient(p); setShowNewRequest(true); setPage("requests"); }} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition hover:brightness-110" style={{ background: "linear-gradient(135deg, #C8922A 0%, #A67520 100%)" }}>
               <I n="pipeline" c="w-4 h-4" /> New PA Request
             </button>
           </div>
