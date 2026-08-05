@@ -9,6 +9,8 @@
 import { identifyDrugClass, getInsurerCriteria } from "../../lib/insurerCriteria";
 import { scoreLetter, formatScoreForPrompt } from "../../lib/rubricScorer";
 import { DENIAL_CODES as COMMON_DENIAL_CODES } from "../../lib/denialCodes";
+import { buildDemoAppealLetter } from "../../lib/demoLetter";
+import { checkRateLimit } from "../../lib/rateLimit";
 
 async function callClaude(messages, apiKey) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -27,7 +29,7 @@ async function callClaude(messages, apiKey) {
 
   if (!response.ok) {
     const status = response.status;
-    if (status === 401) throw new Error("Invalid API key. Check ANTHROPIC_API_KEY in Vercel settings.");
+    if (status === 401) throw new Error("The AI service rejected the request credentials.");
     if (status === 429) throw new Error("Rate limited. Please wait a moment and try again.");
     if (status === 529 || status === 503) throw new Error("AI service temporarily overloaded. Try again shortly.");
     throw new Error(`AI service error (${status}). Please try again.`);
@@ -118,14 +120,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // Demo mode: with no API key configured, generate a deterministic appeal draft
+  // instead of surfacing an error.
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: "Anthropic API key not configured. Go to Vercel > Settings > Environment Variables and add ANTHROPIC_API_KEY." });
-  }
+  let demoMode = !apiKey;
 
   const { patientData, denialReasons, customDenialText, originalLetter } = req.body;
   if (!patientData || !denialReasons || denialReasons.length === 0) {
     return res.status(400).json({ error: "Patient data and at least one denial reason required" });
+  }
+
+  // Protect the shared API key on the public demo: throttle real LLM usage.
+  if (!demoMode && !checkRateLimit(req).allowed) {
+    demoMode = true;
   }
 
   const startTime = Date.now();
@@ -148,20 +155,33 @@ export default async function handler(req, res) {
       }
     }
 
-    // Generate appeal letter
-    const prompt = buildAppealPrompt(patientData, denialReasons, originalLetter, enrichments, customDenialText);
-    let appealLetter = await callClaude([{ role: "user", content: prompt }], apiKey);
-
-    // Score the appeal letter
-    const scoreResult = scoreLetter(appealLetter);
-
-    // If below threshold, regenerate with feedback (one iteration for appeals)
+    // Generate appeal letter. When the LLM is unavailable (no key, exhausted
+    // credit, upstream error) fall back to a deterministic appeal draft.
+    const denialInfoLookup = (code) => COMMON_DENIAL_CODES.find(c => c.code === code);
+    let appealLetter = null;
     let iterations = 1;
-    if (!scoreResult.passed) {
-      const feedback = formatScoreForPrompt(scoreResult);
-      const retryPrompt = prompt + "\n\n" + feedback + "\nIMPORTANT: Address ALL quality gate feedback in this revision.";
-      appealLetter = await callClaude([{ role: "user", content: retryPrompt }], apiKey);
-      iterations = 2;
+    let fallbackNotice = null;
+
+    if (demoMode) {
+      appealLetter = buildDemoAppealLetter(patientData, denialReasons, enrichments, denialInfoLookup);
+    } else {
+      const prompt = buildAppealPrompt(patientData, denialReasons, originalLetter, enrichments, customDenialText);
+      try {
+        appealLetter = await callClaude([{ role: "user", content: prompt }], apiKey);
+
+        // If below threshold, regenerate with feedback (one iteration for appeals)
+        const scoreResult = scoreLetter(appealLetter);
+        if (!scoreResult.passed) {
+          const feedback = formatScoreForPrompt(scoreResult);
+          const retryPrompt = prompt + "\n\n" + feedback + "\nIMPORTANT: Address ALL quality gate feedback in this revision.";
+          appealLetter = await callClaude([{ role: "user", content: retryPrompt }], apiKey);
+          iterations = 2;
+        }
+      } catch (err) {
+        demoMode = true;
+        fallbackNotice = err.message;
+        appealLetter = buildDemoAppealLetter(patientData, denialReasons, enrichments, denialInfoLookup);
+      }
     }
 
     const finalScore = scoreLetter(appealLetter);
@@ -180,6 +200,8 @@ export default async function handler(req, res) {
         criteria: finalScore.criteria,
       },
       iterations,
+      demoMode,
+      notice: fallbackNotice || undefined,
       duration: Date.now() - startTime,
       wordCount: appealLetter.split(/\s+/).length,
     });

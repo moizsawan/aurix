@@ -13,6 +13,8 @@
 import { identifyDrugClass, getInsurerCriteria, performGapAnalysis } from "../../lib/insurerCriteria";
 import { scoreLetter, formatScoreForPrompt } from "../../lib/rubricScorer";
 import { computeDenialProbability } from "../../lib/denialPatterns";
+import { buildDemoPaLetter } from "../../lib/demoLetter";
+import { checkRateLimit } from "../../lib/rateLimit";
 
 const MAX_ITERATIONS = 3;
 const SCORE_THRESHOLD = 10; // out of 12
@@ -38,7 +40,7 @@ async function callClaude(messages, apiKey) {
     try { errText = await response.text(); } catch {}
 
     if (status === 401) {
-      throw new Error("Invalid API key. Please check your ANTHROPIC_API_KEY in Vercel environment variables.");
+      throw new Error("The AI service rejected the request credentials.");
     } else if (status === 429) {
       throw new Error("Rate limited by the AI service. Please wait a moment and try again.");
     } else if (status === 529 || status === 503) {
@@ -158,14 +160,20 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  // Demo mode: when no API key is configured, the pipeline still runs end to end
+  // and produces a deterministic, payer-aware draft instead of surfacing an error.
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: "Anthropic API key not configured. Go to Vercel > Settings > Environment Variables and add ANTHROPIC_API_KEY." });
-  }
+  let demoMode = !apiKey;
 
   const { patientData } = req.body;
   if (!patientData) {
     return res.status(400).json({ error: "Patient data required" });
+  }
+
+  // Protect the shared API key on the public demo: throttle real LLM usage.
+  // A throttled request degrades to a deterministic draft rather than erroring.
+  if (!demoMode && !checkRateLimit(req).allowed) {
+    demoMode = true;
   }
 
   const pipeline = {
@@ -221,14 +229,27 @@ export default async function handler(req, res) {
     let scoreResult = null;
     let feedbackPrompt = null;
     let iteration = 0;
+    let fallbackNotice = null;
 
     while (iteration < MAX_ITERATIONS) {
       iteration++;
       const genStart = Date.now();
 
       // Stage 2: Generate
-      const prompt = buildGenerationPrompt(patientData, gapAnalysis, enrichments, feedbackPrompt);
-      letter = await callClaude([{ role: "user", content: prompt }], apiKey);
+      if (demoMode) {
+        letter = buildDemoPaLetter(patientData, enrichments, gapAnalysis);
+      } else {
+        const prompt = buildGenerationPrompt(patientData, gapAnalysis, enrichments, feedbackPrompt);
+        try {
+          letter = await callClaude([{ role: "user", content: prompt }], apiKey);
+        } catch (err) {
+          // Graceful fallback mid-request: switch to a deterministic draft so the
+          // pipeline still returns a usable result instead of a raw error.
+          demoMode = true;
+          fallbackNotice = err.message;
+          letter = buildDemoPaLetter(patientData, enrichments, gapAnalysis);
+        }
+      }
 
       const genDuration = Date.now() - genStart;
 
@@ -239,9 +260,11 @@ export default async function handler(req, res) {
 
       pipeline.stages.push({
         stage: iteration === 1 ? 2 : 4,
-        name: iteration === 1 ? "LLM Letter Generation" : `Self-Correction (Iteration ${iteration})`,
+        name: iteration === 1
+          ? (demoMode ? "Letter Generation (demo mode)" : "LLM Letter Generation")
+          : `Self-Correction (Iteration ${iteration})`,
         duration: genDuration,
-        result: { wordCount: letter.split(/\s+/).length },
+        result: { wordCount: letter.split(/\s+/).length, demoMode },
       });
 
       pipeline.stages.push({
@@ -262,8 +285,9 @@ export default async function handler(req, res) {
         },
       });
 
-      // Check if passed
-      if (scoreResult.passed || iteration >= MAX_ITERATIONS) {
+      // In demo mode the deterministic draft is stable, so there is nothing to
+      // iterate on. Otherwise stop once the quality gate passes or iterations run out.
+      if (demoMode || scoreResult.passed || iteration >= MAX_ITERATIONS) {
         break;
       }
 
@@ -273,6 +297,8 @@ export default async function handler(req, res) {
 
     pipeline.iterations = iteration;
     pipeline.letter = letter;
+    pipeline.demoMode = demoMode;
+    if (fallbackNotice) pipeline.notice = fallbackNotice;
     pipeline.finalScore = {
       totalScore: scoreResult.totalScore,
       maxScore: scoreResult.maxScore,

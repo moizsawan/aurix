@@ -294,6 +294,11 @@ function PipelineResults({ pipeline }) {
 
   return (
     <div className="space-y-4 anim-up">
+      {pipeline.demoMode && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+          <span className="font-semibold">Sample output (demo mode).</span> Live AI generation is unavailable right now, so this draft was assembled deterministically from the insurer criteria engine. The full pipeline adds AI generation and iterative self-correction on top of these criteria.
+        </div>
+      )}
       {/* Pipeline summary */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4">
