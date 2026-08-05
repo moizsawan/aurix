@@ -10,7 +10,7 @@
 // Stage 7: Appeal Letter Generation (separate endpoint)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { identifyDrugClass, getInsurerCriteria, performGapAnalysis } from "../../lib/insurerCriteria";
+import { identifyDrugClass, getInsurerCriteria, performGapAnalysis, hasNativeCriteria, BASELINE_SOURCE } from "../../lib/insurerCriteria";
 import { scoreLetter, formatScoreForPrompt } from "../../lib/rubricScorer";
 import { computeDenialProbability } from "../../lib/denialPatterns";
 import { buildDemoPaLetter } from "../../lib/demoLetter";
@@ -209,6 +209,8 @@ export default async function handler(req, res) {
         drugIdentified: drugMatch ? drugMatch.drugName : null,
         drugClass: drugMatch ? drugMatch.drugClass : null,
         criteriaFound: !!criteria,
+        usingBaselineCriteria: !!criteria && !hasNativeCriteria(patientData.insurance),
+        baselineSource: (!!criteria && !hasNativeCriteria(patientData.insurance)) ? BASELINE_SOURCE : null,
         gapCount: gapAnalysis ? gapAnalysis.gaps.length : 0,
         gapScore: gapAnalysis ? gapAnalysis.score : null,
         gaps: gapAnalysis ? gapAnalysis.gaps : [],

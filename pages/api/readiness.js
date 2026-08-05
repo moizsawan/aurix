@@ -6,7 +6,7 @@
 // specific actionable recommendations to improve first-pass approval odds.
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { identifyDrugClass, getInsurerCriteria, performGapAnalysis } from "../../lib/insurerCriteria";
+import { identifyDrugClass, getInsurerCriteria, performGapAnalysis, hasNativeCriteria, BASELINE_SOURCE } from "../../lib/insurerCriteria";
 import { computeDenialProbability } from "../../lib/denialPatterns";
 
 export default function handler(req, res) {
@@ -66,6 +66,8 @@ export default function handler(req, res) {
   }
 
   result.criteriaFound = true;
+  result.usingBaselineCriteria = !hasNativeCriteria(patientData.insurance);
+  result.baselineSource = result.usingBaselineCriteria ? BASELINE_SOURCE : null;
   let totalPoints = 0;
   let maxPoints = 0;
 

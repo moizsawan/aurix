@@ -299,6 +299,11 @@ function PipelineResults({ pipeline }) {
           <span className="font-semibold">Sample output (demo mode).</span> Live AI generation is unavailable right now, so this draft was assembled deterministically from the insurer criteria engine. The full pipeline adds AI generation and iterative self-correction on top of these criteria.
         </div>
       )}
+      {stage1?.result?.usingBaselineCriteria && (
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600">
+          <span className="font-semibold">Baseline criteria applied.</span> Aurix does not yet have a payer-specific ruleset for this insurer, so it used the {stage1.result.baselineSource} baseline. Native criteria are implemented for UnitedHealthcare, Aetna, BlueCross BlueShield, Cigna, and Medicare Advantage.
+        </div>
+      )}
       {/* Pipeline summary */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4">
