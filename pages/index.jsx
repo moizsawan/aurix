@@ -426,6 +426,46 @@ function PipelineResults({ pipeline }) {
         </Card>
       )}
 
+      {/* Pre-submission scaffolding: billing codes + denial anticipation */}
+      {(pipeline.billing || (pipeline.denialAnticipation && pipeline.denialAnticipation.length > 0)) && (
+        <Card className="p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <I n="doc" c="w-4 h-4 text-[#C8922A]" />
+            <p className="text-sm font-bold text-slate-800">Pre-Submission Scaffolding</p>
+          </div>
+          {pipeline.billing && (
+            <div className="mb-4">
+              <p className="text-xs font-semibold text-slate-600 mb-1.5">Billing &amp; coding</p>
+              <div className="text-xs text-slate-600 space-y-1">
+                <div className="flex justify-between gap-3">
+                  <span>ICD-10 diagnosis</span>
+                  <span className={`font-medium ${pipeline.billing.icd10.raw ? (pipeline.billing.icd10.valid ? "text-emerald-700" : "text-amber-700") : "text-red-600"}`}>
+                    {pipeline.billing.icd10.raw || "not provided"}{pipeline.billing.icd10.raw && !pipeline.billing.icd10.valid ? " (verify format)" : ""}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span>Procedure / HCPCS codes</span>
+                  <span className="font-medium text-slate-700 text-right">{pipeline.billing.procedureCodes.length > 0 ? pipeline.billing.procedureCodes.join(", ") : "none mapped"}</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {pipeline.denialAnticipation && pipeline.denialAnticipation.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-slate-600 mb-1.5">Denial anticipation</p>
+              <div className="space-y-1.5">
+                {pipeline.denialAnticipation.map((d, i) => (
+                  <div key={i} className={`text-xs px-3 py-2 rounded-lg flex justify-between items-center gap-3 ${d.addressed === false ? "bg-red-50 text-red-700" : d.addressed === true ? "bg-emerald-50 text-emerald-700" : "bg-slate-50 text-slate-600"}`}>
+                    <span>{d.reason}</span>
+                    <span className="font-medium shrink-0">{d.addressed === false ? "Not addressed" : d.addressed === true ? "Addressed" : "Review"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
       {/* Generated Letter */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-3">

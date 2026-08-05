@@ -15,6 +15,8 @@ import { scoreLetter, formatScoreForPrompt } from "../../lib/rubricScorer";
 import { computeDenialProbability } from "../../lib/denialPatterns";
 import { buildDemoPaLetter } from "../../lib/demoLetter";
 import { checkRateLimit } from "../../lib/rateLimit";
+import { assembleBillingBlock } from "../../lib/codeInsertion";
+import { anticipateDenials } from "../../lib/denialAnticipation";
 
 const MAX_ITERATIONS = 3;
 const SCORE_THRESHOLD = 10; // out of 12
@@ -225,6 +227,14 @@ export default async function handler(req, res) {
         } : null,
       },
     });
+
+    // ═══ Pre-submission scaffolding: billing codes + denial anticipation ═══
+    // Deterministic Phase-1 features: a validated billing block (procedure/HCPCS
+    // codes plus the format-checked ICD-10) and a denial-anticipation checklist
+    // that flags required elements missing from the record, regardless of the
+    // letter-generation path.
+    pipeline.billing = assembleBillingBlock(patientData, enrichments || {});
+    pipeline.denialAnticipation = anticipateDenials(patientData, criteria);
 
     // ═══ STAGE 2 + 3 + 4: Generate, Score, Iterate ═══
     let letter = null;
