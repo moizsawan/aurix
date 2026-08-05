@@ -9,6 +9,8 @@ a multi-stage pipeline.
 Aurix is **provider-side**: it helps physicians obtain approvals for their
 patients. It is distinct from payer-side automation that denies claims.
 
+**Live demo:** https://aurix-orcin.vercel.app/
+
 > Aurix is a working prototype. The patient records in the demo are synthetic.
 > It is not a medical device and is not intended for clinical use.
 
