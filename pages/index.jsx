@@ -407,7 +407,7 @@ function PipelineResults({ pipeline }) {
             </div>
             <div>
               <p className={`text-sm font-semibold ${stage5.result.probability > 0.5 ? "text-red-700" : stage5.result.probability > 0.3 ? "text-amber-700" : "text-emerald-700"}`}>Denial Probability</p>
-              <p className="text-[11px] text-slate-400">Based on {stage5.result.sampleSize} historical outcomes (confidence: {stage5.result.confidence})</p>
+              <p className="text-[11px] text-slate-400">Based on {stage5.result.sampleSize} synthetic reference outcomes (confidence: {stage5.result.confidence})</p>
             </div>
           </div>
           {stage5.result.factors && stage5.result.factors.length > 0 && (
@@ -1159,7 +1159,7 @@ function ClinicianApp({ user, onLogout }) {
               </div>
               <div className="text-right">
                 <p className={`text-2xl font-bold ${readiness.projectedApproval >= 70 ? "text-emerald-600" : readiness.projectedApproval >= 50 ? "text-amber-600" : "text-red-600"}`}>{readiness.projectedApproval}%</p>
-                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Projected Approval</p>
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider">Projected Approval (estimate)</p>
               </div>
             </div>
 
