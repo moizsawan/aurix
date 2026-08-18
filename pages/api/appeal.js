@@ -105,7 +105,7 @@ APPEAL LETTER REQUIREMENTS:
 6. Request expedited review if clinically appropriate
 7. Request a peer-to-peer review with a board-certified specialist in the relevant field
 8. Close with physician signature block and explicit statement that the physician is willing to participate in peer-to-peer discussion
-9. Include CPT/HCPCS codes, requested authorization duration, and place of service
+9. Include HCPCS codes, requested authorization duration, and place of service
 10. Maintain a firm but professional tone throughout
 
 The appeal must be MORE detailed and MORE evidence-heavy than the original PA letter. Each denied point needs to be addressed with overwhelming clinical justification.

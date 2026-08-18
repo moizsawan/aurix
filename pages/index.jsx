@@ -357,7 +357,7 @@ function PipelineResults({ pipeline }) {
           {stage1.result.enrichments && (
             <div className="space-y-2 text-xs">
               {stage1.result.enrichments.cptCodes?.length > 0 && (
-                <div className="flex gap-2"><span className="text-slate-400 w-28 shrink-0">CPT/HCPCS:</span><span className="text-slate-700 font-medium">{stage1.result.enrichments.cptCodes.join(", ")}</span></div>
+                <div className="flex gap-2"><span className="text-slate-400 w-28 shrink-0">HCPCS:</span><span className="text-slate-700 font-medium">{stage1.result.enrichments.cptCodes.join(", ")}</span></div>
               )}
               {stage1.result.enrichments.authDuration && (
                 <div className="flex gap-2"><span className="text-slate-400 w-28 shrink-0">Auth Duration:</span><span className="text-slate-700 font-medium">{stage1.result.enrichments.authDuration}</span></div>

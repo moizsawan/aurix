@@ -143,7 +143,7 @@ LETTER REQUIREMENTS:
 2. Include patient demographics, diagnosis with ICD-10 code
 3. State medical necessity clearly with supporting evidence
 4. Document all prior treatments tried, with dosages, duration, and reasons for failure
-5. Include CPT/HCPCS billing codes for the requested treatment
+5. Include HCPCS billing codes for the requested treatment
 6. Specify the requested authorization duration
 7. State the place of service
 8. Include a monitoring and follow-up plan
