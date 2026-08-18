@@ -71,8 +71,8 @@ function Spin({ size = "w-5 h-5" }) {
 }
 
 // ─── CARD ─────────────────────────────────────────────────────────────────────
-function Card({ children, className = "" }) {
-  return <div className={`bg-white rounded-2xl border border-slate-200/80 shadow-sm ${className}`}>{children}</div>;
+function Card({ children, className = "", ...rest }) {
+  return <div className={`bg-white rounded-2xl border border-slate-200/80 shadow-sm ${className}`} {...rest}>{children}</div>;
 }
 
 // ─── TOAST ────────────────────────────────────────────────────────────────────
