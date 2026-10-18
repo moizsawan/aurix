@@ -76,6 +76,31 @@ cp .env.example .env.local
 Real LLM usage is rate limited per IP and globally to protect the key on the
 public deployment; a throttled request degrades to the deterministic draft.
 
+## Authentication
+
+Aurix runs in one of two postures.
+
+**Demo** is the default, with `AURIX_USERS` unset. The published sandbox
+accounts below apply and are checked in the browser. This is what the public
+demo runs. No real patient information belongs in it.
+
+**Configured** switches on when `AURIX_USERS` and `AURIX_SESSION_SECRET` are
+both set. Credentials are then verified only on the server, against scrypt
+hashes, and the session travels in an httpOnly, HMAC-signed cookie. The demo
+accounts stop working entirely.
+
+```bash
+npm run hash-password -- --email dr.patel@practice.com --name "Dr A Patel"
+```
+
+The password is typed at the prompt, never passed as an argument, and never
+printed back. Put the resulting entry in `AURIX_USERS` using **single quotes**;
+see `.env.example` for why that matters.
+
+If `AURIX_USERS` is set but unusable, Aurix refuses to authenticate rather than
+falling back to the demo accounts. A deployment that looks configured must never
+accept `dr.smith@clinic.com`.
+
 ## How to try it (reviewers)
 
 1. Open the app and sign in with the demo clinician account shown on the login
