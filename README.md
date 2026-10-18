@@ -88,6 +88,24 @@ public deployment; a throttled request degrades to the deterministic draft.
 
 No API key is required to try the full flow in demo mode.
 
+## For physician practices
+
+Reviewers can stop at the section above. A practice considering Aurix on real
+cases should read these two first:
+
+- **[docs/PRACTICE-ONBOARDING.md](docs/PRACTICE-ONBOARDING.md)** — a four-step
+  sequence from a synthetic trial to a measured pilot, including the figures
+  worth recording.
+- **[docs/PRACTICE-DEPLOYMENT.md](docs/PRACTICE-DEPLOYMENT.md)** — exactly where
+  patient data goes, the five prerequisites for handling PHI and which of them
+  Aurix does not yet meet, and how to run an instance the practice controls.
+
+[SECURITY.md](SECURITY.md) states the security model plainly, including the
+parts that are demonstration scaffolding rather than access control.
+
+> The public demo must never receive real patient information. Its sign-in
+> credentials are published in this repository, so anyone can sign in.
+
 ## Tech stack
 
 Next.js (pages router) with API routes for the pipeline stages
