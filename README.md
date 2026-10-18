@@ -40,10 +40,16 @@ flags what is missing.
 ## Supported payers
 
 Payer-specific criteria are implemented for **UnitedHealthcare, Aetna,
-BlueCross BlueShield, Cigna, and Medicare Advantage**, across eleven drug
+BlueCross BlueShield, Cigna, and Medicare Advantage**, across fourteen drug
 classes each (rheumatology, GI, dermatology, and pulmonology biologics; GLP-1
-agonists; oncology immunotherapy; CGRP inhibitors; MS therapies; psychiatry;
-cardiology; viscosupplementation).
+agonists; SGLT2 inhibitors; oncology immunotherapy; CAR-T cell therapy; CGRP
+inhibitors; MS therapies; psychiatry; cardiology; anticoagulants;
+viscosupplementation).
+
+Most are medical-benefit therapies with procedure and HCPCS codes. The
+anticoagulants and SGLT2 inhibitors are self-administered orals adjudicated on
+the pharmacy benefit, so no procedure code applies and the billing block says so
+rather than inventing one.
 
 Payers without a native ruleset fall back to a documented UnitedHealthcare
 baseline, and the output states plainly when that baseline was applied rather
