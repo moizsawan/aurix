@@ -33,8 +33,8 @@ describe("published coverage contract", () => {
     ]);
   });
 
-  it("carries eleven therapeutic drug classes", () => {
-    expect(BASELINE_CLASSES).toHaveLength(11);
+  it("carries fourteen therapeutic drug classes", () => {
+    expect(BASELINE_CLASSES).toHaveLength(14);
   });
 
   it("covers the identical class set for every native payer", () => {
@@ -120,19 +120,23 @@ describe("drug class taxonomy", () => {
     }
   });
 
-  // KNOWN GAP, documented rather than asserted away. Three classes exist in the
-  // taxonomy with no criteria under any payer. Requests for those drugs are
-  // recognized and then fall through to the no-criteria path. Closing this is
-  // the coverage-extension work; this test records the exact present state so
-  // that closing it is a visible, deliberate change.
-  it("has three taxonomy classes still awaiting criteria", () => {
+  // This previously recorded three taxonomy classes with no criteria under any
+  // payer: anticoagulants, car_t and sglt2_inhibitors. Twelve drug names resolved
+  // to them and then fell through to the no-criteria path. They are now covered,
+  // and this test holds the taxonomy and the criteria in agreement so that
+  // adding a drug name without criteria fails loudly.
+  it("has criteria for every class in the taxonomy", () => {
     const taxonomy = new Set(Object.values(DRUG_CLASS_MAP));
     const orphans = [...taxonomy].filter((c) => !BASELINE_CLASSES.includes(c));
-    expect(orphans.sort()).toEqual([
-      "anticoagulants",
-      "car_t",
-      "sglt2_inhibitors",
-    ]);
+    expect(orphans).toEqual([]);
+  });
+
+  it("resolves every drug name to criteria under every native payer", () => {
+    for (const [drug, cls] of Object.entries(DRUG_CLASS_MAP)) {
+      for (const payer of NATIVE_PAYERS) {
+        expect(getInsurerCriteria(payer, cls), `${drug} / ${payer}`).toBeTruthy();
+      }
+    }
   });
 });
 
@@ -196,9 +200,10 @@ describe("getInsurerCriteria and hasNativeCriteria", () => {
     );
   });
 
-  it("returns null for a class with no criteria", () => {
-    expect(getInsurerCriteria("Aetna", "car_t")).toBeNull();
+  it("returns null only for a class it genuinely does not model", () => {
     expect(getInsurerCriteria("Aetna", "not_a_real_class")).toBeNull();
+    // car_t used to be null here. It is covered now.
+    expect(getInsurerCriteria("Aetna", "car_t")).toBeTruthy();
   });
 
   it("reports native coverage truthfully, which is what labels the fallback", () => {
@@ -292,6 +297,98 @@ describe("performGapAnalysis", () => {
         : "";
       const r = performGapAnalysis({ currentMedications: needed }, c);
       expect(r.score, cls).toBeLessThan(100);
+    }
+  });
+});
+
+describe("the three newly covered classes", () => {
+  const NEW = ["anticoagulants", "sglt2_inhibitors", "car_t"];
+
+  it("are present under every native payer", () => {
+    for (const payer of NATIVE_PAYERS) {
+      for (const cls of NEW) {
+        expect(INSURER_CRITERIA[payer][cls], `${payer} / ${cls}`).toBeTruthy();
+      }
+    }
+  });
+
+  it("reach unmodeled payers through the documented baseline", () => {
+    for (const cls of NEW) {
+      expect(getInsurerCriteria("Humana", cls)).toEqual(
+        INSURER_CRITERIA[BASELINE_SOURCE][cls]
+      );
+    }
+  });
+
+  // Apixaban, rivaroxaban and the SGLT2 inhibitors are self-administered orals
+  // adjudicated on the pharmacy benefit. There is no procedure or HCPCS code to
+  // insert, so an empty list is the correct answer and the billing block says
+  // "none mapped for this therapy" rather than inventing one. CAR-T is the
+  // opposite: a medical-benefit product with real Q codes.
+  it("carries no procedure codes for the oral pharmacy-benefit classes", () => {
+    for (const cls of ["anticoagulants", "sglt2_inhibitors"]) {
+      for (const payer of NATIVE_PAYERS) {
+        expect(INSURER_CRITERIA[payer][cls].cptCodes, `${payer} / ${cls}`).toEqual([]);
+      }
+    }
+  });
+
+  it("carries real HCPCS codes for CAR-T", () => {
+    for (const payer of NATIVE_PAYERS) {
+      const codes = INSURER_CRITERIA[payer].car_t.cptCodes.join(" ");
+      expect(codes, payer).toContain("Q2041");
+      expect(codes, payer).toContain("Q2042");
+    }
+  });
+
+  // CAR-T eligibility turns on prior lines of systemic therapy, not on stepping
+  // through alternatives, so it follows the immunotherapy precedent.
+  it("does not impose step therapy on CAR-T", () => {
+    for (const payer of NATIVE_PAYERS) {
+      const st = INSURER_CRITERIA[payer].car_t.stepTherapy;
+      expect(st.required, payer).toBe(false);
+      expect(st.drugs, payer).toEqual([]);
+      expect(st.documentationNeeded, payer).toMatch(/prior lines of systemic/i);
+    }
+  });
+
+  it("requires a warfarin trial for the anticoagulants", () => {
+    for (const payer of NATIVE_PAYERS) {
+      const st = INSURER_CRITERIA[payer].anticoagulants.stepTherapy;
+      expect(st.required, payer).toBe(true);
+      expect(st.drugs, payer).toContain("warfarin");
+      expect(st.minTrials, payer).toBe(1);
+    }
+  });
+
+  it("requires a metformin trial for the SGLT2 inhibitors", () => {
+    for (const payer of NATIVE_PAYERS) {
+      const st = INSURER_CRITERIA[payer].sglt2_inhibitors.stepTherapy;
+      expect(st.required, payer).toBe(true);
+      expect(st.drugs, payer).toContain("metformin");
+    }
+  });
+
+  it("keeps the Medicare Advantage LCD qualifier consistent with its other classes", () => {
+    for (const cls of NEW) {
+      expect(INSURER_CRITERIA["Medicare Advantage"][cls].authDuration, cls)
+        .toMatch(/LCD/);
+    }
+  });
+
+  it("scores a bare record below a full one for each new class", () => {
+    for (const cls of NEW) {
+      const c = getInsurerCriteria(BASELINE_SOURCE, cls);
+      const bare = performGapAnalysis({}, c);
+      expect(bare.score, cls).toBeGreaterThanOrEqual(0);
+      expect(bare.score, cls).toBeLessThan(100);
+      if (c.stepTherapy.required) {
+        const filled = performGapAnalysis(
+          { currentMedications: c.stepTherapy.drugs.slice(0, c.stepTherapy.minTrials).join(", ") },
+          c
+        );
+        expect(filled.score, cls).toBeGreaterThan(bare.score);
+      }
     }
   });
 });
