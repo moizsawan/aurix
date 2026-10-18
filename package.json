@@ -7,7 +7,8 @@
     "dev": "next dev",
     "test": "vitest run",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "hash-password": "node scripts/hash-password.mjs"
   },
   "dependencies": {
     "next": "14.2.3",

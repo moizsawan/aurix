@@ -153,15 +153,45 @@ function ScoreBar({ score, max, label, passed }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // LOGIN
 // ═══════════════════════════════════════════════════════════════════════════════
-function Login({ onLogin }) {
+function Login({ onLogin, authMode }) {
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
   const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const submit = () => {
-    const u = LOGINS[email];
-    if (!u || u.password !== pass) { setErr("Invalid credentials"); return; }
-    onLogin({ email, ...u });
+  // In demo mode the published sandbox accounts are checked here, as they always
+  // have been. On a configured deployment nothing is verified in the browser:
+  // the server holds the scrypt hashes and answers with a signed session cookie.
+  const submit = async () => {
+    if (busy) return;
+    setErr("");
+    if (authMode === "demo") {
+      const u = LOGINS[email.trim().toLowerCase()];
+      if (!u || u.password !== pass) { setErr("Invalid credentials"); return; }
+      onLogin({ email: email.trim().toLowerCase(), ...u });
+      return;
+    }
+    setBusy(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password: pass }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setErr(data.error || "Invalid credentials"); return; }
+      if (data.mode === "demo") {
+        const u = LOGINS[email.trim().toLowerCase()];
+        if (!u || u.password !== pass) { setErr("Invalid credentials"); return; }
+        onLogin({ email: email.trim().toLowerCase(), ...u });
+        return;
+      }
+      onLogin(data.user);
+    } catch {
+      setErr("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -223,13 +253,14 @@ function Login({ onLogin }) {
             Sign In
           </button>
 
-          <div className="mt-8 bg-white/[0.03] border border-white/[0.05] rounded-xl p-4">
+          {authMode === "demo" && <div className="mt-8 bg-white/[0.03] border border-white/[0.05] rounded-xl p-4">
             <p className="text-blue-200/30 text-[10px] uppercase tracking-wider font-bold mb-3">Demo Accounts</p>
             <div className="space-y-2 text-xs">
               <div className="flex justify-between text-blue-200/40"><span>Clinician:</span><span className="text-blue-200/60">dr.smith@clinic.com / doctor123</span></div>
               <div className="flex justify-between text-blue-200/40"><span>Patient:</span><span className="text-blue-200/60">margaret.chen@email.com / patient123</span></div>
             </div>
-          </div>
+            <p className="text-blue-200/25 text-[10px] mt-3 leading-relaxed">Public sandbox. Every record here is synthetic. Do not enter real patient information.</p>
+          </div>}
         </div>
       </div>
     </div>
@@ -1438,15 +1469,70 @@ export default function Home() {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
   const [toast, setToast] = useState(null);
-  useEffect(() => { const u = ls("ax_user", null); if (u) setUser(u); setReady(true); _setToastGlobal = setToast; }, []);
-  const login = u => { sls("ax_user", u); setUser(u); };
-  const logout = () => { sls("ax_user", null); setUser(null); };
+  const [authMode, setAuthMode] = useState(null);
+  const [authError, setAuthError] = useState(null);
+
+  // Ask the server which posture this deployment is in before showing anything.
+  // On a configured deployment the signed cookie is the only thing that
+  // establishes a session; a stale ax_user in localStorage must not be trusted,
+  // or clearing the cookie would not actually sign anyone out.
+  useEffect(() => {
+    _setToastGlobal = setToast;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/session");
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (res.status === 503) {
+          setAuthError(data.error || "Authentication is not correctly configured.");
+          setReady(true);
+          return;
+        }
+        setAuthMode(data.mode || "demo");
+        if (data.mode === "configured") {
+          setUser(data.user || null);
+          if (!data.user) sls("ax_user", null);
+        } else {
+          const u = ls("ax_user", null);
+          if (u) setUser(u);
+        }
+      } catch {
+        // Offline or the route is unreachable: fall back to sandbox behaviour
+        // rather than locking a demo visitor out of a static page.
+        if (cancelled) return;
+        setAuthMode("demo");
+        const u = ls("ax_user", null);
+        if (u) setUser(u);
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const login = u => { if (authMode === "demo") sls("ax_user", u); setUser(u); };
+  const logout = () => {
+    sls("ax_user", null);
+    setUser(null);
+    if (authMode === "configured") fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
+  };
 
   if (!ready) return <div className="min-h-screen flex items-center justify-center" style={{ background: "#0A1628" }}><Spin size="w-8 h-8" /></div>;
+
+  if (authError) return (
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ background: "#0A1628" }}>
+      <div className="max-w-lg bg-white/[0.04] border border-white/[0.08] rounded-xl p-6">
+        <p className="text-white text-sm font-semibold mb-2">This deployment is not accepting sign-ins</p>
+        <p className="text-blue-200/50 text-sm leading-relaxed">{authError}</p>
+      </div>
+    </div>
+  );
+
   return (
     <>
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
-      {!user ? <Login onLogin={login} /> : user.role === "patient" ? <PatientPortal user={user} onLogout={logout} /> : <ClinicianApp user={user} onLogout={logout} />}
+      {!user ? <Login onLogin={login} authMode={authMode} /> : user.role === "patient" ? <PatientPortal user={user} onLogout={logout} /> : <ClinicianApp user={user} onLogout={logout} />}
     </>
   );
 }
